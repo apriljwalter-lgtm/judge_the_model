@@ -1,4 +1,4 @@
-**App:** _paste your public app link here_
+**App:** https://judgethemodelgitgitpush-uoriginmaingitaddrunappshgitcommit-mad.streamlit.app/
 
 # Judge the Model
 
