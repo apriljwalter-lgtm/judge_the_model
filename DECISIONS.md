@@ -7,8 +7,8 @@
 
 ## Before results
 For each dataset: positive class; which error matters more for the job (missed positive or false alarm) and why.
-- readmission: Postive class is patient readmitted within 30 days; false alarm is more costly to the hospital based on the follow up that may occur. If a patient is missed to be flagged for readmission it won't matter because they can still get readmitted and receive the care they would need. 
-- diabetes: Positive class is (`target` = 1):** Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%); missed positive is more costly to the patient's health overall because there can be serious consequences to missing a diabetes diagnosis related to the impacts the disease has on the body when not treated. 
+- readmission: Positive class is patient readmitted within 30 days; false alarm is more costly to the hospital based on the follow up that may occur. If a patient is missed to be flagged for readmission it won't matter because they can still get readmitted and receive the care they would need. 
+- diabetes: Positive class is Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%); missed positive is more costly to the patient's health overall because there can be serious consequences to missing a diabetes diagnosis related to the impacts the disease has on the body when not treated. 
 
 ## Recommendations
 - readmission: <model and threshold, or "none is adequate for this job"> because ...
