@@ -1,0 +1,7 @@
+# Jewel-tone theme for the app (used locally and on Streamlit Community Cloud).
+[theme]
+base = "light"
+primaryColor = "#5B2A86"            # amethyst: sliders, selected options, focus rings
+backgroundColor = "#FBF9F6"         # warm ivory page
+secondaryBackgroundColor = "#EFE9F5" # pale amethyst sidebar and inputs
+textColor = "#2B1D3A"
