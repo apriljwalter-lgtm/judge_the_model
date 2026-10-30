@@ -1,11 +1,11 @@
 {
-  "exported_at": null,
-  "words": 0,
+  "exported_at": "2026-10-30T22:51:19Z",
+  "words": 95,
   "word_limit": 150,
   "sections": {
     "before_results": {
-      "readmission": "",
-      "diabetes": ""
+      "readmission": "Positive class is patient readmitted within 30 days; false alarm is more costly to the hospital based on the follow up that may occur. If a patient is missed to be flagged for readmission it won't matter because they can still get readmitted and receive the care they would need.",
+      "diabetes": "Positive class is Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%); missed positive is more costly to the patient's health overall because there can be serious consequences to missing a diabetes diagnosis related to the impacts the disease has on the body when not treated."
     },
     "recommendations": {
       "readmission": "",
@@ -17,7 +17,7 @@
     }
   },
   "complete": {
-    "before_results": false,
+    "before_results": true,
     "recommendations": false,
     "design": false
   },
