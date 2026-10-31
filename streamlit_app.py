@@ -333,12 +333,13 @@ def fmt_change(a, b, kind: str) -> str:
 
 
 def compare_table(rows: list[tuple], chosen: float, t: dict) -> str:
-    """Each measure at 0.50, at the chosen threshold (tinted amethyst) and the change, with a hover tip per measure."""
-    head = (f"<th>Measure ({TEST})</th><th>At 0.50</th><th class=chosen>At your threshold, {chosen:.2f}</th>"
+    """Each measure at the chosen threshold (tinted amethyst), at 0.50, and the change, with a hover tip per measure.
+    The column order matches the matrices above: yours on the left, 0.50 on the right."""
+    head = (f"<th>Measure ({TEST})</th><th class=chosen>At your threshold, {chosen:.2f}</th><th>At 0.50</th>"
             "<th>Change vs 0.50</th>")
     body = "".join(
-        f"<tr><td>{escape(label)} {tip(t[key], 'l')}</td><td>{fmt_value(a, kind)}</td>"
-        f"<td class=chosen>{fmt_value(b, kind)}</td><td>{fmt_change(a, b, kind)}</td></tr>"
+        f"<tr><td>{escape(label)} {tip(t[key], 'l')}</td><td class=chosen>{fmt_value(b, kind)}</td>"
+        f"<td>{fmt_value(a, kind)}</td><td>{fmt_change(a, b, kind)}</td></tr>"
         for label, key, a, b, kind in rows)
     return f'<div class="jt-scroll"><table class="jt-table"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
 
@@ -427,7 +428,12 @@ RENDER = dict(zip(SECTIONS, [beyond_accuracy, threshold, train_vs_test]))
 st.title("Judge the Model")
 st.caption("Which classifier would you trust for this job, at what threshold, and with what limits?")
 recommendations()
-section = st.sidebar.radio("Section", SECTIONS)
+# The section is kept in the address (?section=2), so a refresh returns to it.
+if "section" not in st.session_state:
+    wanted = st.query_params.get("section", "1")
+    st.session_state.section = SECTIONS[int(wanted) - 1] if wanted in ("1", "2", "3") else SECTIONS[0]
+section = st.sidebar.radio("Section", SECTIONS, key="section")
+st.query_params["section"] = str(SECTIONS.index(section) + 1)
 key = st.sidebar.selectbox("Dataset", m11.DATASETS, format_func=m11.DATASET_LABEL.get)
 res = load(key)
 model = st.sidebar.selectbox("Model", m11.MODELS, key="model",  # key: Section 1's table can also set it
