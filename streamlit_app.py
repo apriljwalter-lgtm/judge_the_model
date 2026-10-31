@@ -5,6 +5,7 @@ Build each section up to its required minimum (see the activity website). Keep e
 coming from m11.py, and label every table and plot "Training" or "Test".
 """
 
+import math
 from html import escape
 
 import pandas as pd
@@ -67,6 +68,14 @@ st.markdown(f"""<style>
 .jt-table tr.selected td {{font-weight: 700; background: #F3EEF8; border-top: 4px solid {AMETHYST}; border-bottom: 4px solid {AMETHYST};}}
 .jt-table tr.selected td:first-child {{border-left: 4px solid {AMETHYST};}}
 .jt-table tr.selected td:last-child {{border-right: 4px solid {AMETHYST};}}
+.jt-banner {{display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem 1.5rem; color: #fff;
+  background: linear-gradient(100deg, {AMETHYST}, {SAPPHIRE}); border-radius: 12px; padding: .8rem 1.2rem; margin-bottom: .4rem;}}
+.jt-banner span {{font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; opacity: .9;}}
+.jt-banner .name {{font-family: 'Fraunces', serif; font-size: 1.8rem; font-weight: 700; line-height: 1.15;}}
+.jt-banner small {{display: block; font-size: .8rem; opacity: .9; max-width: 22rem;}}
+.jt-banner .note {{flex-basis: 100%; background: rgba(255, 255, 255, .16); border-radius: 8px; padding: .45rem .7rem; font-size: .88rem;}}
+.jt-table th.chosen {{background: {AMETHYST};}}
+.jt-table td.chosen {{background: #F3EEF8; font-weight: 700;}}
 .jt-card.selected {{border: 4px solid {AMETHYST}; box-shadow: 0 4px 14px rgba(91, 42, 134, .28);}}
 .jt-card h4 {{font-size: 1.05rem; margin: 0 0 .4rem; padding: 0; color: {INK};}}
 .jt-mx {{width: 100%; border-collapse: separate; border-spacing: 4px; font-variant-numeric: tabular-nums;}}
@@ -118,9 +127,9 @@ THRESHOLD = 0.5
 
 # Words only (no numbers): the positive class of each job, and how to say "had it" / "didn't" in a sentence.
 OUTCOME = {
-    "readmission": {"positive": "Readmitted within 30 days of discharge",
+    "readmission": {"positive": "Readmitted within 30 days of discharge", "unit": "patients",
                     "had": "were readmitted within 30 days", "not": "were not readmitted within 30 days"},
-    "diabetes": {"positive": "Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%)",
+    "diabetes": {"positive": "Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%)", "unit": "adults",
                  "had": "had diabetes", "not": "did not have diabetes"},
 }
 
@@ -161,6 +170,13 @@ def tips(o: dict) -> dict:
               "flag would trigger.",
         "fp": f"Patients who {o['not']} but were flagged: false alarms. Each may get follow-up they didn't need.",
         "tn": f"Patients who {o['not']} and were not flagged: correctly left alone.",
+        "flagged100": f"Out of every 100 {o['unit']}, how many the model flags for follow-up. Higher means more "
+                      "follow-up work: more patients caught, but also more false alarms.",
+        "fa100": f"Out of every 100 {o['unit']}, how many are flagged although they {o['not']}. Each is follow-up "
+                 "that turns out not to be needed. Lower is better, but lowering it usually means missing more patients.",
+        "auroc": f"AUROC describes ranking. Pick one of the patients who {o['had']} and one of those who {o['not']}: "
+                 "AUROC is how often the first gets the higher probability. It is not accuracy, and it doesn't choose "
+                 "a threshold. The slider can't change it, because no probability changes.",
     }
 
 
@@ -175,9 +191,9 @@ def cell(c: dict, k: str) -> str:
     return f'<td style="background:{bg};color:{fg}">{code} {c[k]:,}</td>'
 
 
-def small_matrix(title: str, c: dict) -> str:
+def small_matrix(title: str, c: dict, selected: bool = False) -> str:
     """A compact confusion matrix card: rows are the actual outcome, columns the prediction at the threshold."""
-    return (f'<div class="jt-card"><h4>{escape(title)}</h4><table class="jt-mx">'
+    return (f'<div class="jt-card{" selected" if selected else ""}"><h4>{escape(title)}</h4><table class="jt-mx">'
             '<tr><th></th><th>Predicted +</th><th>Predicted −</th></tr>'
             f'<tr><th>Actual +</th>{cell(c, "tp")}{cell(c, "fn")}</tr>'
             f'<tr><th>Actual −</th>{cell(c, "fp")}{cell(c, "tn")}</tr></table></div>')
@@ -296,13 +312,104 @@ def beyond_accuracy(res: dict, model: str) -> None:
 
 
 # ---- 2. A Threshold for the Job ------------------------------------------------
+STEP = 0.01  # the slider's step
+
+
+def fmt_value(v, kind: str) -> str:
+    if kind == "count":
+        return f"{v:,}"
+    if kind == "per100":
+        return "undefined" if v is None else f"{v:.1f}"
+    return m11.fmt_pct(v) if kind == "pct" else m11.fmt_num(v)
+
+
+def fmt_change(a, b, kind: str) -> str:
+    """b − a, signed: counts as whole patients, percentages in percentage points."""
+    if a is None or b is None:
+        return "undefined"
+    d = b - a
+    text = {"count": f"{d:+,}", "pct": f"{d * 100:+.1f} pts", "per100": f"{d:+.1f}"}.get(kind, f"{d:+.3f}")
+    return text.replace("-", "−")
+
+
+def compare_table(rows: list[tuple], chosen: float, t: dict) -> str:
+    """Each measure at 0.50, at the chosen threshold (tinted amethyst) and the change, with a hover tip per measure."""
+    head = (f"<th>Measure ({TEST})</th><th>At 0.50</th><th class=chosen>At your threshold, {chosen:.2f}</th>"
+            "<th>Change vs 0.50</th>")
+    body = "".join(
+        f"<tr><td>{escape(label)} {tip(t[key], 'l')}</td><td>{fmt_value(a, kind)}</td>"
+        f"<td class=chosen>{fmt_value(b, kind)}</td><td>{fmt_change(a, b, kind)}</td></tr>"
+        for label, key, a, b, kind in rows)
+    return f'<div class="jt-scroll"><table class="jt-table"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
+
+
 def threshold(res: dict, model: str) -> None:
-    starter_note("metrics at 0.50 only.")
+    o = OUTCOME[res["dataset"]]
+    t = tips(o)
     p, y = m11.preds(res, model)
-    m = m11.metrics(m11.confusion(p, y, 0.5))
-    st.caption(f"{TEST} · {m11.MODEL_LABEL[model]}, threshold 0.50")
-    st.table(pd.DataFrame([{"Sensitivity": m11.fmt_pct(m["sensitivity"]), "Specificity": m11.fmt_pct(m["specificity"]),
-                            "Precision": m11.fmt_pct(m["precision"]), "Flagged per 100": f"{m['flagged_per_100']:.1f}"}]))
+    n = len(y)
+    st.session_state.setdefault("s2_threshold", 0.5)
+
+    st.subheader(f"What moving the threshold gains and gives up ({TEST})")
+
+    # ---- Which model: a banner naming it, with what the slider can't change (its AUROC and probabilities)
+    same = sorted(set(p))
+    note = (f'<div class="note">This model gives every patient the same probability, {same[0]:.4f}, so moving the '
+            f'slider changes nothing until it goes below {same[0]:.4f}; then everyone is flagged at once.</div>'
+            if len(same) == 1 else "")
+    html(f'<div class="jt-banner"><div><span>Model ({TEST})</span><div class="name">{escape(m11.MODEL_LABEL[model])}</div></div>'
+         f'<div><span>AUROC ({TEST}) {tip(t["auroc"], "r")}</span><div class="name">{m11.fmt_num(m11.auroc(p, y))}</div>'
+         "<small>the same at every threshold: the slider changes only the cut-off, never a probability</small></div>"
+         f"{note}</div>")
+
+    # ---- The model buttons, right above the slider (they and the sidebar dropdown stay in step)
+    st.session_state.s2_model = model
+    st.segmented_control("Choose a model", m11.MODELS, required=True, format_func=m11.MODEL_LABEL.get,
+                         key="s2_model", on_change=lambda: select_model(st.session_state.s2_model), width="stretch")
+
+    # ---- The one control, with what it changes summed up right beside it
+    left, right = st.columns([3, 2], gap="large", vertical_alignment="center")
+    with left:
+        chosen = st.slider("Your threshold: flag a patient when their probability is at least", 0.0, 1.0, step=STEP,
+                           format="%.2f", key="s2_threshold")
+    c50, ct = m11.confusion(p, y, 0.5), m11.confusion(p, y, chosen)
+    m50, mt = m11.metrics(c50), m11.metrics(ct)
+    with right:
+        if math.isclose(chosen, 0.5):
+            html('<div class="jt-strip"><div><b>Compared with 0.50</b>Move the slider to see what a different threshold '
+                 'gains and gives up. Everything below follows it.</div></div>')
+        else:
+            per100 = {k: 100 * (ct[k] - c50[k]) / n for k in ("tp", "fp", "fn")}
+            html(f'<div class="jt-strip"><div><b>Moving from 0.50 to {chosen:.2f}, per 100 {o["unit"]} ({TEST})</b>'
+                 f'flagged {fmt_change(m50["flagged_per_100"], mt["flagged_per_100"], "per100")} · '
+                 f'caught {fmt_change(0, per100["tp"], "per100")} · '
+                 f'false alarms {fmt_change(0, per100["fp"], "per100")} · '
+                 f'missed {fmt_change(0, per100["fn"], "per100")}</div></div>')
+
+    # ---- The two confusion matrices side by side: yours under the slider, 0.50 on the right for comparison
+    yours, fixed = st.columns([3, 2], gap="large")
+    yours.markdown(small_matrix(f"At your threshold, {chosen:.2f} ({TEST})", ct, selected=not math.isclose(chosen, 0.5)),
+                   unsafe_allow_html=True)
+    fixed.markdown(small_matrix(f"At 0.50 ({TEST})", c50), unsafe_allow_html=True)
+
+    # ---- Every measure side by side
+    rows = [
+        ("Caught (TP)", "tp", c50["tp"], ct["tp"], "count"),
+        ("Missed (FN)", "fn", c50["fn"], ct["fn"], "count"),
+        ("False alarms (FP)", "fp", c50["fp"], ct["fp"], "count"),
+        ("Correctly not flagged (TN)", "tn", c50["tn"], ct["tn"], "count"),
+        (f"Flagged per 100 {o['unit']}", "flagged100", m50["flagged_per_100"], mt["flagged_per_100"], "per100"),
+        (f"False alarms per 100 {o['unit']}", "fa100", 100 * c50["fp"] / n, 100 * ct["fp"] / n, "per100"),
+        ("Sensitivity (recall, TPR)", "sensitivity", m50["sensitivity"], mt["sensitivity"], "pct"),
+        ("Specificity", "specificity", m50["specificity"], mt["specificity"], "pct"),
+        ("FPR (1 − specificity)", "fpr", m50["fpr"], mt["fpr"], "pct"),
+        ("Precision", "precision", m50["precision"], mt["precision"], "pct"),
+        ("F1", "f1", m50["f1"], mt["f1"], "num"),
+        ("Accuracy", "accuracy", m50["accuracy"], mt["accuracy"], "pct"),
+    ]
+    st.caption(f"{TEST} · {m11.MODEL_LABEL[model]} at 0.50 and at your threshold. “undefined” means the measure "
+               "divides by zero (for example precision when no patient is flagged).")
+    html(compare_table(rows, chosen, t))
 
 
 # ---- 3. Training vs. Test ------------------------------------------------------
