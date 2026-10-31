@@ -142,6 +142,12 @@ st.markdown(f"""<style>
 .jt-hb div {{display: flex; align-items: center; justify-content: center; color: #fff; transition: width .25s ease;}}
 .jt-hb .tp {{background: {EMERALD};}} .jt-hb .fn {{background: {RUBY};}} .jt-hb .fp {{background: {TOPAZ_FILL}; color: {INK};}}
 .jt-hb .tn {{background: #E3EBF6; color: {SAPPHIRE};}}
+.jt-hb-row {{row-gap: .2rem;}}
+.jt-hb-vals {{font-size: .78rem; color: {INK}; font-variant-numeric: tabular-nums; margin-bottom: .35rem;}}
+.jt-hb-vals small {{color: {MUTED};}}
+.jt-hb-vals i {{display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .3rem; vertical-align: -1px;}}
+.jt-hb-vals i.tp {{background: {EMERALD};}} .jt-hb-vals i.fn {{background: {RUBY};}}
+.jt-hb-vals i.fp {{background: {TOPAZ_FILL}; border: 1px solid {TOPAZ_EDGE};}} .jt-hb-vals i.tn {{background: #E3EBF6; border: 1px solid {SAPPHIRE};}}
 .jt-legend.inline i.tp {{background: {EMERALD};}} .jt-legend.inline i.fn {{background: {RUBY};}}
 .jt-legend.inline i.fp {{background: {TOPAZ_FILL}; border: 1.5px solid {TOPAZ_EDGE};}} .jt-legend.inline i.tn {{background: #E3EBF6; border: 1px solid {SAPPHIRE};}}
 .jt-ab {{margin-bottom: 1rem;}}
@@ -325,7 +331,11 @@ def hundred_bar(label: str, c: dict) -> str:
     n = sum(c[k] for k in ORDER)
     segs = "".join(f'<div class="{k}" style="width:{100 * c[k] / n:.3f}%">{f"{100 * c[k] / n:.1f}" if 100 * c[k] / n >= 4 else ""}'
                    f"</div>" for k in ORDER if c[k])
-    return f'<div class="jt-hb-row"><div class="lbl">{escape(label)}</div><div class="jt-hb">{segs}</div></div>'
+    # Every group's exact value under the bar, so a segment too thin to label is never hidden
+    values = " · ".join(f'<span><i class="{k}"></i>{GROUPS[k][1]} <b>{100 * c[k] / n:.1f}</b> <small>({c[k]:,})</small></span>'
+                        for k in ORDER)
+    return (f'<div class="jt-hb-row"><div class="lbl">{escape(label)}</div><div class="jt-hb">{segs}</div>'
+            f'<div></div><div class="jt-hb-vals">{values} <small>per 100 (patients out of {n:,})</small></div></div>')
 
 
 def group_legend() -> str:
