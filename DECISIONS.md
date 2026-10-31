@@ -11,10 +11,10 @@ For each dataset: positive class; which error matters more for the job (missed p
 - diabetes: Positive class is Diabetes (reported doctor diagnosis or HbA1c ≥ 6.5%); missed positive is more costly to the patient's health overall because there can be serious consequences to missing a diabetes diagnosis related to the impacts the disease has on the body when not treated. 
 
 ## Recommendations
-- readmission: <model and threshold, or "none is adequate for this job"> because ...
-- diabetes: ...
+- readmission: None is adequate for this job because the test AUROC results for each model rank from 0.583 to 0.651 which is not much better than 0.5 chance. Logistic regression at a threshold of 0.15 catches 80 of the 359 readmitted patients but flags only 9.3 patients per 100, 7.3 per 100 are false alarms it still misses most readmissions (279 of 359). Additionally the type of post care follow up will impact how costly flagging a readmission could be.  If something like a post care phone call is used this has a low cost and can review a large number of patients versus an in depth rehab type of follow up needed either in a care facility or home health. Flagging more patients for costly care will have negative financial impact. 
+- diabetes: Logistic regression at threshold 0.16 because on test patients, it catches 171 of the 200 adults with diabetes and misses 29, at a cost of 27.4 false alarms per 100 adults screened. The trade-off here is worth it because the health effects of undiagnosed or uncontrolled diabetes are much worse than an A1C lab test. Undiagnosed diabetes can lead to kidney damage, increased risk for cardiovascular disease, nerve damage, vision loss, and in very extreme instances diabetic ketoacidosis. Logistic regression has the highest test AUROC at 0.827 for the test set with a gap of -0.016 from the training set meaning it did not memorize the training data. 
 
 ## Design choice and AI use
 A few sentences each. The design choice must be your own idea, not an AI tool's.
-- design choice: <one thing you chose to show, or leave out, for your clinical lead> because ...
-- AI suggestion I turned down: <what an AI tool suggested, and why you didn't use it, or "no AI tools used">
+- design choice: I chose to remove the sidebar with toggle buttons and dropdown menus because I found it to be more frustrating and distracting than actually contributing to user interaction. I wanted the full page to display more information in groupings that made sense and logically kept up with each other when exploring. 
+- AI suggestion I turned down: AI suggested a trade-off curve with a target sensitivity box, but I found it confusing as laid out and that it wasn't contributing to the information included on the page. 
